@@ -115,14 +115,13 @@ except Exception:
 # =====================================================================
 # 5. RUNNABLE PIPELINE (RAG Chain)
 # =====================================================================
-prompt_template = """Anda adalah asisten chatbot materi kuliah Pak Ronggo.
-Jawablah pertanyaan berikut dengan sopan dan ringkas berdasarkan konteks dokumen yang disediakan.
-Jika informasi tidak ada di dalam konteks, katakan bahwa Anda tidak tahu.
+# Menyesuaikan dengan konsep prompt di Colab (Konteks & Input)
+prompt_template = """Anda adalah asisten ahli fotografi. Gunakan potongan konteks berikut untuk menjawab pertanyaan di akhir. Jika Anda tidak tahu jawabannya, katakan bahwa Anda tidak tahu.
 
 Konteks:
 {context}
 
-Pertanyaan: {question}
+Pertanyaan: {input}
 Jawaban:"""
 
 prompt = ChatPromptTemplate.from_template(prompt_template)
@@ -132,8 +131,9 @@ def format_docs(docs):
         return docs
     return "\n\n".join([doc.page_content for doc in docs])
 
+# Menggunakan "input" sebagai key agar sesuai dengan input di Colab
 rag_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    {"context": retriever | format_docs, "input": RunnablePassthrough()}
     | prompt
     | llm
     | StrOutputParser()
