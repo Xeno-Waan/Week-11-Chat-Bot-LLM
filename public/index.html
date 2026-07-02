@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 RAG Chatbot Explorer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Marked.js for Markdown Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #131314;
+            --sidebar-color: #1e1f20;
+            --card-color: #1e1f20;
+            --text-main: #e3e3e3;
+            --text-sub: #9ca3af;
+            --accent-blue: #4285f4;
+            --accent-purple: #9b72cb;
+            --accent-orange: #f59e0b;
+            --accent-green: #10b981;
+            --input-bg: #282a2c;
+            --border-color: #374151;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: 280px;
+            background-color: var(--sidebar-color);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border-color);
+            padding: 24px;
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .sidebar-logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .new-chat-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 12px 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
+        }
+
+        .new-chat-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--text-sub);
+        }
+
+        .sidebar-info {
+            background: rgba(66, 133, 244, 0.05);
+            border: 1px solid rgba(66, 133, 244, 0.15);
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 0.85rem;
+            color: var(--text-sub);
+            line-height: 1.5;
+            margin-top: auto;
+        }
+
+        .sidebar-info strong {
+            color: var(--accent-blue);
+        }
+
+        /* Main Container */
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Top Header */
+        .top-header {
+            height: 64px;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            background: rgba(19, 19, 20, 0.8);
+        }
+
+        .top-header-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Chat Window */
+        .chat-area {
+            flex: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .chat-wrapper {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding-bottom: 100px;
+        }
+
+        /* Empty State */
+        .welcome-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin-top: 10vh;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .welcome-title {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #4285f4 0%, #9b72cb 50%, #d96570 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .welcome-subtitle {
+            color: var(--text-sub);
+            font-size: 1.1rem;
+            max-width: 500px;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        /* Suggestion Cards */
+        .suggestions-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .suggestion-card {
+            background-color: var(--card-color);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .suggestion-card:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            transform: translateY(-2px);
+            border-color: #4b5563;
+        }
+
+        .suggestion-card i {
+            color: var(--accent-blue);
+            font-size: 1.2rem;
+        }
+
+        .suggestion-card span {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        /* Message Bubbles */
+        .message-row {
+            display: flex;
+            width: 100%;
+            gap: 16px;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .message-row.user {
+            justify-content: flex-end;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .avatar.bot {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            color: white;
+        }
+
+        .avatar.user {
+            background-color: #4b5563;
+            color: white;
+        }
+
+        .bubble {
+            max-width: 70%;
+            padding: 16px 20px;
+            border-radius: 18px;
+            font-size: 0.975rem;
+            line-height: 1.6;
+        }
+
+        .message-row.user .bubble {
+            background-color: #2b3a55;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-row.bot .bubble {
+            background-color: var(--card-color);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-top-left-radius: 4px;
+            width: 100%;
+        }
+
+        /* Markdown Rendering inside bubble */
+        .bubble p {
+            margin-bottom: 12px;
+        }
+        .bubble p:last-child {
+            margin-bottom: 0;
+        }
+        .bubble ul, .bubble ol {
+            margin-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        /* Collapsible Expander for Baseline Answer */
+        .baseline-expander {
+            margin-top: 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .baseline-header {
+            padding: 12px 16px;
+            background-color: rgba(245, 158, 11, 0.05);
+            color: var(--accent-orange);
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .baseline-header:hover {
+            background-color: rgba(245, 158, 11, 0.1);
+        }
+
+        .baseline-content {
+            padding: 16px;
+            font-size: 0.9rem;
+            color: #d1d5db;
+            border-top: 1px solid var(--border-color);
+            display: none;
+            line-height: 1.5;
+        }
+
+        .baseline-content.show {
+            display: block;
+        }
+
+        /* Typing Dots Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--text-sub);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        /* Input Container */
+        .input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(to top, var(--bg-color) 70%, transparent);
+            padding: 20px 24px 30px;
+            display: flex;
+            justify-content: center;
+            z-index: 5;
+        }
+
+        .input-wrapper {
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: #555e6b;
+            box-shadow: 0 0 10px rgba(66, 133, 244, 0.1);
+        }
+
+        .chat-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            padding: 10px 12px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-sub);
+        }
+
+        .send-btn {
+            background-color: transparent;
+            border: none;
+            color: var(--text-sub);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            transition: all 0.2s ease;
+        }
+
+        .send-btn.active {
+            color: var(--accent-blue);
+            background-color: rgba(66, 133, 244, 0.1);
+        }
+
+        .send-btn.active:hover {
+            transform: scale(1.05);
+            background-color: rgba(66, 133, 244, 0.15);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2f3032;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3e3f42;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .welcome-title {
+                font-size: 2.2rem;
+            }
+            .suggestions-grid {
+                grid-template-columns: 1fr;
+            }
+            .bubble {
+                max-width: 85%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-blue); font-size: 1.4rem;"></i>
+            <span class="sidebar-logo">RAG Chatbot</span>
+        </div>
+        <button class="new-chat-btn" onclick="resetChat()">
+            <i class="fa-solid fa-plus"></i> Baru Obrolan
+        </button>
+        <div class="sidebar-info">
+            <p><strong>💡 Info Sistem:</strong></p>
+            <p style="margin-top: 8px;">Aplikasi ini mencari dokumen di folder <code>documents/</code> secara dinamis.</p>
+            <p style="margin-top: 8px;">Jawaban utama diproses dengan <strong>RAG</strong>. Jawaban tanpa RAG dapat dilihat pada expander di bawah balasan bot.</p>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-container">
+        
+        <!-- Header -->
+        <div class="top-header">
+            <div class="top-header-title">🤖 RAG & Baseline LLM Assistant</div>
+            <div style="font-size: 0.85rem; color: var(--accent-green)">
+                <i class="fa-solid fa-circle-check"></i> Serverless API Active
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area" id="chatArea">
+            <div class="chat-wrapper" id="chatWrapper">
+                
+                <!-- Welcome Screen (Empty State) -->
+                <div class="welcome-container" id="welcomeScreen">
+                    <div class="welcome-title">Halo, Fotografer</div>
+                    <div class="welcome-subtitle">Tanyakan apa pun tentang panduan fotografi ahli Anda, atau biarkan RAG menganalisis dokumen basis pengetahuan Anda.</div>
+                    
+                    <div class="suggestions-grid">
+                        <div class="suggestion-card" onclick="submitQuickQuestion('Siapa dosen pengampu materi Week 11?')">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>Siapa dosen pengampu materi Week 11?</span>
+                        </div>
+                        <div class="suggestion-card" onclick="submitQuickQuestion('Apa saja topik utama yang dibahas pada Week 11?')">
+                            <i class="fa-solid fa-book-open"></i>
+                            <span>Apa saja topik utama yang dibahas pada Week 11?</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Container -->
+                <div id="messagesContainer" style="display: flex; flex-direction: column; gap: 24px; width: 100%;"></div>
+
+            </div>
+        </div>
+
+        <!-- Input Box Area -->
+        <div class="input-area">
+            <div class="input-wrapper">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Tanyakan pada asisten RAG..." oninput="toggleSendBtnState()" onkeypress="handleKeyPress(event)">
+                <button class="send-btn" id="sendBtn" onclick="handleSend()">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const messagesContainer = document.getElementById('messagesContainer');
+        const welcomeScreen = document.getElementById('welcomeScreen');
+        const chatArea = document.getElementById('chatArea');
+
+        // Dynamic API Url Resolver
+        const getApiUrl = () => {
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+                return "http://localhost:5000/api/chat";
+            }
+            return "/api/chat";
+        };
+
+        function toggleSendBtnState() {
+            if (chatInput.value.trim() !== "") {
+                sendBtn.classList.add('active');
+            } else {
+                sendBtn.classList.remove('active');
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                handleSend();
+            }
+        }
+
+        function submitQuickQuestion(question) {
+            chatInput.value = question;
+            toggleSendBtnState();
+            handleSend();
+        }
+
+        function resetChat() {
+            messagesContainer.innerHTML = '';
+            welcomeScreen.style.display = 'flex';
+            chatInput.value = '';
+            toggleSendBtnState();
+        }
+
+        function scrollChatToBottom() {
+            chatArea.scrollTo({
+                top: chatArea.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Typewriter effect generator
+        function typeText(element, text, callback) {
+            // Parse Markdown into HTML first using marked.js
+            const parsedHtml = marked.parse(text);
+            
+            // Render the text content gradually
+            let index = 0;
+            element.innerHTML = '';
+            
+            // Untuk merender secara kata demi kata (word by word) agar terlihat seperti streaming asli
+            const words = text.split(" ");
+            let currentText = "";
+            
+            const timer = setInterval(() => {
+                if (index < words.length) {
+                    currentText += words[index] + " ";
+                    element.innerHTML = marked.parse(currentText);
+                    index++;
+                    scrollChatToBottom();
+                } else {
+                    clearInterval(timer);
+                    // Set hasil HTML final yang bersih
+                    element.innerHTML = parsedHtml;
+                    if (callback) callback();
+                    scrollChatToBottom();
+                }
+            }, 50); // Kecepatan render kata
+        }
+
+        function toggleBaseline(headerElement) {
+            const content = headerElement.nextElementSibling;
+            const icon = headerElement.querySelector('i');
+            
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                content.classList.add('show');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            }
+            scrollChatToBottom();
+        }
+
+        async function handleSend() {
+            const question = chatInput.value.trim();
+            if (!question) return;
+
+            // Hapus welcome screen jika ada
+            welcomeScreen.style.display = 'none';
+
+            // 1. Tampilkan pesan user di UI
+            const userRow = document.createElement('div');
+            userRow.className = 'message-row user';
+            userRow.innerHTML = `
+                <div class="bubble">${question}</div>
+                <div class="avatar user"><i class="fa-solid fa-user"></i></div>
+            `;
+            messagesContainer.appendChild(userRow);
+            
+            // Reset input
+            chatInput.value = '';
+            toggleSendBtnState();
+            scrollChatToBottom();
+
+            // 2. Tampilkan indicator loading bot
+            const botRow = document.createElement('div');
+            botRow.className = 'message-row';
+            const botId = 'bot-' + Date.now();
+            botRow.innerHTML = `
+                <div class="avatar bot"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="bubble" id="${botId}">
+                    <div class="typing-indicator">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
+            `;
+            messagesContainer.appendChild(botRow);
+            scrollChatToBottom();
+
+            const botBubble = document.getElementById(botId);
+
+            // 3. Panggil API ke serverless backend
+            try {
+                const response = await fetch(getApiUrl(), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned code ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 4. Render output dengan typewriter effect pada jawaban RAG
+                typeText(botBubble, data.rag_answer, () => {
+                    // Tambahkan expander Baseline setelah teks typewriter selesai diketik
+                    const expander = document.createElement('div');
+                    expander.className = 'baseline-expander';
+                    
+                    const parsedBaseline = marked.parse(data.baseline_answer);
+                    
+                    expander.innerHTML = `
+                        <div class="baseline-header" onclick="toggleBaseline(this)">
+                            <span>🔍 Perbandingan: Baseline LLM (Tanpa RAG)</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </div>
+                        <div class="baseline-content">
+                            ${parsedBaseline}
+                        </div>
+                    `;
+                    botBubble.appendChild(expander);
+                    scrollChatToBottom();
+                });
+
+            } catch (error) {
+                botBubble.innerHTML = `<span style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Gagal terhubung ke API Serverless: ${error.message}</span>`;
+                scrollChatToBottom();
+            }
+        }
+    </script>
+</body>
+</html>

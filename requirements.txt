@@ -5,3 +5,6 @@ langchain-community
 faiss-cpu
 pydantic
 pypdf
+flask
+flask-cors
+langchain-text-splitters
