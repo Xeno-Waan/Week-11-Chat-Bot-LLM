@@ -7,8 +7,8 @@ import streamlit as st
 # tempat Anda mendefinisikan dan menginisialisasi `llm` dan `rag_chain`.
 # Contoh: jika diinisialisasi di `rag_setup.py`, gunakan `from rag_setup import llm, rag_chain`.
 try:
-    # Ganti 'nama_modul_anda' dengan file python Anda yang memiliki objek llm dan rag_chain
-    from nama_modul_anda import llm, rag_chain
+    # Ganti 'rag' dengan nama file python Anda jika nanti Anda mengubahnya
+    from rag import llm, rag_chain
 except ImportError:
     # Fallback / Mock Object agar aplikasi Streamlit tetap dapat dijalankan dan diuji 
     # secara independen sebelum diintegrasikan dengan modul RAG asli Anda.

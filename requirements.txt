@@ -1,5 +1,6 @@
 streamlit
-# Tambahkan library lain yang dibutuhkan oleh llm dan rag_chain Anda di bawah ini, misalnya:
-# langchain
-# langchain-openai
-# pydantic
+langchain
+langchain-google-genai
+langchain-community
+faiss-cpu
+pydantic
