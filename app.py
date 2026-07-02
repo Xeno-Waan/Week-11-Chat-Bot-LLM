@@ -1,17 +1,14 @@
 import streamlit as st
+import os
+import time
 
-# ==========================================
-# IMPORT / INISIALISASI LLM DAN RAG_CHAIN
-# ==========================================
-# Silakan sesuaikan baris import di bawah ini dengan nama file/modul 
-# tempat Anda mendefinisikan dan menginisialisasi `llm` dan `rag_chain`.
-# Contoh: jika diinisialisasi di `rag_setup.py`, gunakan `from rag_setup import llm, rag_chain`.
+# =====================================================================
+# 1. IMPOR / INISIALISASI LLM DAN RAG_CHAIN
+# =====================================================================
 try:
-    # Ganti 'rag' dengan nama file python Anda jika nanti Anda mengubahnya
     from rag import llm, rag_chain
 except ImportError:
-    # Fallback / Mock Object agar aplikasi Streamlit tetap dapat dijalankan dan diuji 
-    # secara independen sebelum diintegrasikan dengan modul RAG asli Anda.
+    # Fallback / Mock Object jika file rag.py tidak dapat diimpor
     class MockLLM:
         def invoke(self, text):
             class Content:
@@ -24,229 +21,194 @@ except ImportError:
             return Content()
 
     class MockRAGChain:
-        def invoke(self, text):
-            return (
+        def stream(self, text):
+            response = (
                 f"Ini adalah jawaban dari **RAG Chain** untuk pertanyaan Anda: *\"{text}\"*.\n\n"
                 f"Jawaban ini telah diperkaya dengan informasi relevan yang diambil dari "
                 f"basis pengetahuan dokumen internal (Retrieval-Augmented Generation), sehingga "
                 f"lebih akurat, spesifik, dan meminimalkan halusinasi."
             )
+            for word in response.split(" "):
+                yield word + " "
+                time.sleep(0.04)
+        def invoke(self, text):
+            return "".join(self.stream(text))
 
     llm = MockLLM()
     rag_chain = MockRAGChain()
 
-# ==========================================
-# KONFIGURASI HALAMAN STREAMLIT
-# ==========================================
+# =====================================================================
+# 2. KONFIGURASI HALAMAN & TEMA STREAMLIT
+# =====================================================================
 st.set_page_config(
-    page_title="RAG vs Baseline LLM Comparison",
+    page_title="RAG Chatbot Explorer",
     page_icon="🤖",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS untuk tampilan premium modern (Glassmorphism & Elegant Typography)
+# Custom CSS untuk tampilan premium ala Google Gemini (Modern & Clean)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
     
-    /* Ganti font global */
+    /* Font global */
     html, body, [class*="css"] {
         font-family: 'Plus Jakarta Sans', sans-serif;
     }
     
-    /* Judul Utama */
-    .main-title {
-        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    /* Header Utama */
+    .chatbot-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-top: 20px;
+    }
+    
+    .chatbot-title {
+        background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 50%, #10b981 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 2.5rem;
+        font-size: 2.2rem;
         font-weight: 800;
+        letter-spacing: -0.025em;
         margin-bottom: 5px;
     }
     
-    .sub-title {
+    .chatbot-subtitle {
         color: #9ca3af;
-        font-size: 1rem;
-        margin-bottom: 25px;
+        font-size: 0.95rem;
     }
 
-    /* Box Pertanyaan */
-    .question-box {
-        background-color: rgba(59, 130, 246, 0.08);
-        border-left: 4px solid #3b82f6;
-        border-radius: 0px 12px 12px 0px;
-        padding: 16px 20px;
-        margin-top: 15px;
-        margin-bottom: 25px;
-    }
-    
-    .question-title {
-        font-weight: 700;
-        color: #60a5fa;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 5px;
+    /* Kustomisasi Expander */
+    .streamlit-expanderHeader {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        color: #f59e0b !important;
     }
 
-    .question-text {
-        font-size: 1.1rem;
-        color: #f3f4f6;
-    }
-
-    /* Desain Card untuk Jawaban */
-    .answer-card {
-        background-color: #1f2937;
-        border: 1px solid #374151;
-        border-radius: 12px;
-        padding: 24px;
-        height: 100%;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .answer-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        border-color: #4b5563;
-    }
-    
-    /* Header di dalam Card */
-    .card-header-rag {
-        color: #10b981;
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        border-bottom: 1px solid #374151;
-        padding-bottom: 10px;
-    }
-
-    .card-header-baseline {
-        color: #f59e0b;
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 12px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        border-bottom: 1px solid #374151;
-        padding-bottom: 10px;
-    }
-    
-    /* Konten Teks di dalam Card */
-    .card-body {
-        color: #e5e7eb;
-        line-height: 1.6;
-        font-size: 0.975rem;
+    .streamlit-expanderContent {
+        border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 0 0 8px 8px !important;
+        padding: 15px !important;
+        background-color: rgba(0, 0, 0, 0.1) !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# SIDEBAR INFORMASI
-# ==========================================
+# =====================================================================
+# 3. SIDEBAR CONTROLS
+# =====================================================================
 with st.sidebar:
-    st.markdown("### 🛠️ Pengaturan Modul")
-    st.info(
-        "Aplikasi ini membandingkan jawaban dari LLM murni (Baseline) dengan "
-        "LLM yang dilengkapi data eksternal (RAG Chain)."
-    )
+    st.markdown("### 🛠️ Pengaturan Chatbot")
+    st.write("Gunakan menu ini untuk mengontrol sesi obrolan Anda.")
     st.markdown("---")
-    st.markdown("#### 💡 Petunjuk Integrasi:")
-    st.write(
-        "Untuk menghubungkan ke `llm` dan `rag_chain` riil Anda, ubah bagian import di baris paling atas berkas `app.py`:"
+    
+    # Tombol Reset Chat History
+    if st.button("🗑️ Hapus Percakapan", use_container_width=True):
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": "Halo! Saya asisten chatbot RAG untuk materi kuliah Pak Ronggo. Ada yang bisa saya bantu terkait materi Week 11?",
+                "baseline": None
+            }
+        ]
+        st.rerun()
+
+    st.markdown("---")
+    st.info(
+        "💡 **RAG Chain** akan mencari konteks dari dokumen internal sebelum menjawab. "
+        "Jawaban **Baseline LLM** dapat dibuka melalui tombol opsi di bawah setiap respons bot."
     )
-    st.code("from nama_file_anda import llm, rag_chain", language="python")
 
-# ==========================================
-# TAMPILAN UTAMA (HEADER)
-# ==========================================
-st.markdown('<div class="main-title">🤖 RAG vs Baseline LLM Explorer</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Bandingkan performa jawaban LLM berbasis Retrieval-Augmented Generation dengan Model Standar secara real-time.</div>', unsafe_allow_html=True)
+# =====================================================================
+# 4. TAMPILAN HEADER UTAMA
+# =====================================================================
+st.markdown("""
+<div class="chatbot-header">
+    <div class="chatbot-title">🤖 RAG Chatbot Assistant</div>
+    <div class="chatbot-subtitle">Asisten AI Cerdas berbasis Retrieval-Augmented Generation — Week 11</div>
+</div>
+""", unsafe_allow_html=True)
 
-# ==========================================
-# AREA INPUT PENGGUNA
-# ==========================================
-pertanyaan_pengguna = st.text_area(
-    "Masukkan Pertanyaan Anda:",
-    placeholder="Contoh: Apa saja topik utama yang dibahas dalam dokumen materi week 11?",
-    height=120
-)
+# =====================================================================
+# 5. INITIALISASI STATE PESAN (CHAT HISTORY)
+# =====================================================================
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": "Halo! Saya asisten chatbot RAG untuk materi kuliah Pak Ronggo. Ada yang bisa saya bantu terkait materi Week 11?",
+            "baseline": None
+        }
+    ]
 
-# Tombol Jawab / Kirim
-col_btn, _ = st.columns([1, 4])
-with col_btn:
-    tombol_kirim = st.button("🚀 Jawab Pertanyaan", use_container_width=True)
+# =====================================================================
+# 6. MENAMPILKAN RIWAYAT PESAN (CHAT BUBBLE STYLE)
+# =====================================================================
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+        # Tampilkan perbandingan baseline jika pesan tersebut dikirim oleh asisten dan memiliki data baseline
+        if message["role"] == "assistant" and message.get("baseline"):
+            with st.expander("🔍 Lihat Perbandingan: Baseline LLM (Tanpa RAG)"):
+                st.markdown(message["baseline"])
 
-# ==========================================
-# LOGIKA SAAT TOMBOL DITEKAN
-# ==========================================
-if tombol_kirim:
-    if pertanyaan_pengguna.strip() == "":
-        st.warning("⚠️ Mohon masukkan pertanyaan terlebih dahulu sebelum mengirim.")
-    else:
-        # 4a. Tampilkan pertanyaan pengguna
-        st.markdown(
-            f"""
-            <div class="question-box">
-                <div class="question-title">Pertanyaan Anda:</div>
-                <div class="question-text">"{pertanyaan_pengguna}"</div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
+# =====================================================================
+# 7. PROSES INPUT PENGGUNA & GENERASI RESPON
+# =====================================================================
+if user_input := st.chat_input("Ketik pertanyaan Anda di sini..."):
+    # Tampilkan pesan user
+    with st.chat_message("user"):
+        st.markdown(user_input)
+    
+    # Simpan ke riwayat pesan
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    
+    # Buat respon dari asisten
+    with st.chat_message("assistant"):
+        # Penampung respons RAG (dengan efek streaming)
+        rag_placeholder = st.empty()
         
-        # Grid kolom untuk menampilkan perbandingan secara side-by-side
-        col_rag, col_baseline = st.columns(2)
-        
-        # Jalankan pemanggilan model dengan spinner indikator proses
-        with st.spinner("Sedang memproses jawaban..."):
+        # Generator stream untuk RAG
+        def get_rag_stream():
             try:
-                # 4b. Panggil rag_chain.invoke
-                jawaban_rag = rag_chain.invoke(pertanyaan_pengguna)
+                # Cek apakah objek rag_chain memiliki metode stream (LangChain LCEL)
+                if hasattr(rag_chain, "stream"):
+                    for chunk in rag_chain.stream(user_input):
+                        yield chunk
+                else:
+                    # Fallback jika hanya ada invoke
+                    response_text = rag_chain.invoke(user_input)
+                    # Simulasikan ketikan agar estetik
+                    for word in response_text.split(" "):
+                        yield word + " "
+                        time.sleep(0.04)
             except Exception as e:
-                jawaban_rag = f"❌ Gagal memanggil RAG Chain: {str(e)}"
-                
-            try:
-                # 4c. Panggil llm.invoke
-                response_baseline = llm.invoke(pertanyaan_pengguna)
-                # Mendapatkan isi teks dari content
-                jawaban_baseline = getattr(response_baseline, 'content', str(response_baseline))
-            except Exception as e:
-                jawaban_baseline = f"❌ Gagal memanggil Baseline LLM: {str(e)}"
+                yield f"❌ Gagal memanggil RAG Chain: {str(e)}"
         
-        # Tampilkan Hasil Jawaban RAG Chain
-        with col_rag:
-            st.markdown(
-                f"""
-                <div class="answer-card">
-                    <div class="card-header-rag">
-                        ✨ RAG Chain Response
-                    </div>
-                    <div class="card-body">
-                """, 
-                unsafe_allow_html=True
-            )
-            # Menggunakan st.markdown agar formatting markdown dari jawaban teraplikasikan secara rapi
-            st.markdown(jawaban_rag)
-            st.markdown("</div></div>", unsafe_allow_html=True)
+        # Jalankan streaming respons ke layar
+        response_rag_text = st.write_stream(get_rag_stream())
+        
+        # Panggil baseline LLM secara paralel/berurutan di latar belakang
+        with st.spinner("Mengambil jawaban perbandingan baseline..."):
+            try:
+                response_baseline = llm.invoke(user_input)
+                response_baseline_text = getattr(response_baseline, 'content', str(response_baseline))
+            except Exception as e:
+                response_baseline_text = f"❌ Gagal memanggil Baseline LLM: {str(e)}"
+        
+        # Tampilkan expander perbandingan baseline
+        with st.expander("🔍 Lihat Perbandingan: Baseline LLM (Tanpa RAG)"):
+            st.markdown(response_baseline_text)
             
-        # Tampilkan Hasil Jawaban Baseline LLM
-        with col_baseline:
-            st.markdown(
-                f"""
-                <div class="answer-card">
-                    <div class="card-header-baseline">
-                        🤖 Baseline LLM (No RAG)
-                    </div>
-                    <div class="card-body">
-                """, 
-                unsafe_allow_html=True
-            )
-            # Menggunakan st.markdown agar formatting markdown dari jawaban teraplikasikan secara rapi
-            st.markdown(jawaban_baseline)
-            st.markdown("</div></div>", unsafe_allow_html=True)
+    # Simpan respon asisten (RAG + Baseline) ke riwayat pesan
+    st.session_state.messages.append({
+        "role": "assistant",
+        "content": response_rag_text,
+        "baseline": response_baseline_text
+    })
