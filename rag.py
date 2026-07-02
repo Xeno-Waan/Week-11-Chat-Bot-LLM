@@ -5,16 +5,20 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# Untuk memuat PDF jika dipasang
+try:
+    from langchain_community.document_loaders import PyPDFLoader
+except ImportError:
+    PyPDFLoader = None
 
 # =====================================================================
 # 1. KONFIGURASI API KEY GEMINI
 # =====================================================================
-# Mengambil API key dari Environment Variable (lokal) atau Streamlit Secrets (Cloud)
 api_key = os.environ.get("GOOGLE_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
 
 if not api_key:
-    # Jika API key belum terpasang, gunakan mock key agar inisialisasi tidak langsung error.
-    # Pengguna akan diarahkan untuk mengisi API key di dashboard Streamlit Cloud atau file .env
     api_key = "MOCK_KEY"
 
 # =====================================================================
@@ -28,10 +32,15 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # =====================================================================
-# 3. CONTOH BASIS DATA DOKUMEN / MATERI KULIAH (Konteks RAG)
+# 3. LOADER DOKUMEN DINAMIS (Membaca folder 'documents')
 # =====================================================================
-# Silakan ganti isi teks di bawah ini dengan dokumen/informasi materi Anda sendiri
-documents = [
+docs_dir = os.path.join(os.path.dirname(__file__), "documents")
+os.makedirs(docs_dir, exist_ok=True)
+
+loaded_docs = []
+
+# Teks default jika folder documents kosong
+fallback_texts = [
     "Mata kuliah ini diampu oleh Pak Ronggo pada Week 11 tentang Chat Bot dan Large Language Model (LLM).",
     "Week 11 membahas cara kerja RAG (Retrieval-Augmented Generation) dan integrasi LLM dengan basis data eksternal.",
     "Tugas akhir week 11 adalah membuat chatbot sederhana yang membandingkan performa RAG dengan LLM baseline.",
@@ -39,22 +48,63 @@ documents = [
     "Jadwal praktikum kecerdasan buatan diadakan setiap hari Kamis pukul 13.00 WIB di Laboratorium Komputer Utama.",
 ]
 
+# Mencari berkas dokumen pendukung
+files = os.listdir(docs_dir)
+has_valid_files = False
+
+for file in files:
+    file_path = os.path.join(docs_dir, file)
+    if os.path.isfile(file_path):
+        # 1. Baca berkas TXT / MD
+        if file.endswith((".txt", ".md")):
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                    if content.strip():
+                        # Buat objek dokumen tiruan
+                        class SimpleDocument:
+                            def __init__(self, page_content, metadata):
+                                self.page_content = page_content
+                                self.metadata = metadata
+                        loaded_docs.append(SimpleDocument(content, {"source": file}))
+                        has_valid_files = True
+            except Exception as e:
+                st.sidebar.warning(f"Gagal membaca berkas {file}: {str(e)}")
+        
+        # 2. Baca berkas PDF
+        elif file.endswith(".pdf") and PyPDFLoader is not None:
+            try:
+                loader = PyPDFLoader(file_path)
+                loaded_docs.extend(loader.load())
+                has_valid_files = True
+            except Exception as e:
+                st.sidebar.warning(f"Gagal membaca PDF {file}: {str(e)}")
+
+# Jika tidak ada berkas dokumen, gunakan teks fallback bawaan
+if not has_valid_files:
+    class FallbackDocument:
+        def __init__(self, page_content, metadata):
+            self.page_content = page_content
+            self.metadata = metadata
+    loaded_docs = [FallbackDocument(text, {"source": "fallback"}) for text in fallback_texts]
+
+# Memotong teks dokumen menjadi potongan kecil (chunks) agar pencarian lebih akurat
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+doc_chunks = text_splitter.split_documents(loaded_docs)
+
 # =====================================================================
 # 4. EMBEDDINGS & VECTOR STORE (FAISS)
 # =====================================================================
-# Inisialisasi model embeddings dari Google
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",
     google_api_key=api_key
 )
 
-# Membuat vector database sederhana di memori menggunakan FAISS
-# Catatan: Jika API key belum valid (masih MOCK_KEY), inisialisasi FAISS riil akan dilewati
 try:
-    vector_store = FAISS.from_texts(documents, embeddings)
-    retriever = vector_store.as_retriever(search_kwargs={"k": 2})
+    vector_store = FAISS.from_documents(doc_chunks, embeddings)
+    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 except Exception:
-    # Fallback retriever tiruan jika terjadi error / API key belum valid
+    # Fallback retriever tiruan jika API Key belum valid
     class MockRetriever:
         def __or__(self, other):
             return self
@@ -77,13 +127,11 @@ Jawaban:"""
 
 prompt = ChatPromptTemplate.from_template(prompt_template)
 
-# Helper untuk menggabungkan teks dari dokumen-dokumen yang ditemukan
 def format_docs(docs):
     if isinstance(docs, str):
         return docs
     return "\n\n".join([doc.page_content for doc in docs])
 
-# Membangun RAG Chain utuh menggunakan LangChain Expression Language (LCEL)
 rag_chain = (
     {"context": retriever | format_docs, "question": RunnablePassthrough()}
     | prompt
