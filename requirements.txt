@@ -2,9 +2,11 @@ streamlit
 langchain
 langchain-google-genai
 langchain-community
-faiss-cpu
+langchain-chroma
+chromadb
 pydantic
 pypdf
 flask
 flask-cors
 langchain-text-splitters
+wandb

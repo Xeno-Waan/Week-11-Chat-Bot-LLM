@@ -3,7 +3,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmb
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.vectorstores import FAISS
+from langchain_chroma import Chroma
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Untuk memuat PDF jika dipasang
@@ -94,7 +94,7 @@ text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=15
 doc_chunks = text_splitter.split_documents(loaded_docs)
 
 # =====================================================================
-# 4. EMBEDDINGS & VECTOR STORE (FAISS)
+# 4. EMBEDDINGS & VECTOR STORE (ChromaDB)
 # =====================================================================
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",
@@ -102,22 +102,31 @@ embeddings = GoogleGenerativeAIEmbeddings(
 )
 
 try:
-    vector_store = FAISS.from_documents(doc_chunks, embeddings)
+    persist_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db")
+    if os.environ.get("VERCEL"):
+        persist_dir = "/tmp/chroma_db"
+        
+    vector_store = Chroma.from_documents(
+        documents=doc_chunks,
+        embedding=embeddings,
+        persist_directory=persist_dir
+    )
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 except Exception as e:
     print(f"Koneksi/Embeddings error (menggunakan retriever tiruan): {str(e)}")
-    # Fallback retriever tiruan jika API Key belum valid
-    class MockRetriever:
-        def __or__(self, other):
-            return self
-        def invoke(self, query):
-            return "Konteks simulasi: Pak Ronggo adalah dosen Week 11 Chatbot RAG."
-    retriever = MockRetriever()
+    # Fallback retriever tiruan menggunakan RunnableLambda agar kompatibel dengan pipeline LangChain
+    from langchain_core.runnables import RunnableLambda
+    from langchain_core.documents import Document
+    
+    def mock_retrieve(query):
+        return [Document(page_content="Konteks simulasi: Pak Ronggo adalah dosen Week 11 Chatbot RAG.", metadata={"source": "simulasi.pdf", "page": 0})]
+        
+    retriever = RunnableLambda(mock_retrieve)
 
 # =====================================================================
 # 5. RUNNABLE PIPELINE (RAG Chain)
 # =====================================================================
-prompt_template = """Anda adalah asisten ahli fotografi. Gunakan potongan konteks berikut untuk menjawab pertanyaan di akhir. Jika Anda tidak tahu jawabannya, katakan bahwa Anda tidak tahu.
+prompt_template = """Anda adalah asisten chatbot RAG untuk materi kuliah Pak Ronggo tentang Chatbot dan Large Language Model (LLM). Gunakan potongan konteks berikut untuk menjawab pertanyaan di akhir. Jika Anda tidak tahu jawabannya, katakan bahwa Anda tidak tahu.
 
 Konteks:
 {context}
@@ -138,3 +147,49 @@ rag_chain = (
     | llm
     | StrOutputParser()
 )
+
+generation_chain = (
+    prompt
+    | llm
+    | StrOutputParser()
+)
+
+def create_rag_chain(custom_retriever):
+    return (
+        {"context": custom_retriever | format_docs, "input": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+
+def index_uploaded_pdf(file_path):
+    if PyPDFLoader is None:
+        raise ImportError("PyPDFLoader tidak dapat diimpor. Pastikan pypdf terpasang.")
+    
+    # 1. Load PDF
+    loader = PyPDFLoader(file_path)
+    docs = loader.load()
+    
+    # 2. Split teks menjadi chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    chunks = text_splitter.split_documents(docs)
+    
+    # 3. Tentukan persist directory
+    persist_dir = "/tmp/chroma_db" if os.environ.get("VERCEL") else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chroma_db")
+    
+    # 4. Hapus folder lama agar index bersih
+    import shutil
+    if os.path.exists(persist_dir):
+        try:
+            shutil.rmtree(persist_dir)
+        except Exception as e:
+            print(f"Gagal membersihkan ChromaDB lama: {str(e)}")
+            
+    # 5. Bangun vector store ChromaDB baru
+    new_vector_store = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        persist_directory=persist_dir
+    )
+    
+    return len(docs), len(chunks)

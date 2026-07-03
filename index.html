@@ -458,6 +458,59 @@
                 max-width: 85%;
             }
         }
+
+        /* PDF Upload Zone Styles */
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 20px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.02);
+            margin-top: 10px;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--accent-blue);
+            background: rgba(66, 133, 244, 0.05);
+        }
+        .drop-zone.success {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.05);
+        }
+        .drop-zone.success i {
+            color: var(--accent-green);
+        }
+        
+        /* Citation styling */
+        .citations-container {
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .citation-badge {
+            background: rgba(66, 133, 244, 0.08);
+            border: 1px solid rgba(66, 133, 244, 0.15);
+            color: #8ab4f8;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        
+        .citation-badge:hover {
+            background: rgba(66, 133, 244, 0.15);
+            border-color: rgba(66, 133, 244, 0.3);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -471,9 +524,22 @@
         <button class="new-chat-btn" onclick="resetChat()">
             <i class="fa-solid fa-plus"></i> Baru Obrolan
         </button>
+
+        <!-- Upload PDF Section -->
+        <div class="upload-section" style="margin-bottom: 20px;">
+            <div class="upload-title" style="font-size: 0.8rem; font-weight: 700; color: var(--text-sub); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">📁 Dokumen Sumber</div>
+            <div id="dropZone" class="drop-zone">
+                <i class="fa-solid fa-file-pdf" style="font-size: 2rem; color: var(--text-sub); margin-bottom: 10px; display: block; margin-left: auto; margin-right: auto;"></i>
+                <p style="font-size: 0.8rem; color: var(--text-main); font-weight: 500; margin-bottom: 4px;">Seret PDF atau klik</p>
+                <p style="font-size: 0.7rem; color: var(--text-sub);">Ukuran maks. 10MB</p>
+                <input type="file" id="pdfFileInput" accept="application/pdf" style="display: none;">
+            </div>
+            <div id="uploadStatus" style="margin-top: 10px; font-size: 0.78rem; display: none; line-height: 1.4;"></div>
+        </div>
+
         <div class="sidebar-info">
             <p><strong>💡 Info Sistem:</strong></p>
-            <p style="margin-top: 8px;">Aplikasi ini mencari dokumen di folder <code>documents/</code> secara dinamis.</p>
+            <p style="margin-top: 8px;">Unggah PDF untuk mengindeks dokumen baru ke <strong>ChromaDB</strong>.</p>
             <p style="margin-top: 8px;">Jawaban utama diproses dengan <strong>RAG</strong>. Jawaban tanpa RAG dapat dilihat pada expander di bawah balasan bot.</p>
         </div>
     </div>
@@ -495,8 +561,8 @@
                 
                 <!-- Welcome Screen (Empty State) -->
                 <div class="welcome-container" id="welcomeScreen">
-                    <div class="welcome-title">Halo, Fotografer</div>
-                    <div class="welcome-subtitle">Tanyakan apa pun tentang panduan fotografi ahli Anda, atau biarkan RAG menganalisis dokumen basis pengetahuan Anda.</div>
+                    <div class="welcome-title">Halo, Mahasiswa</div>
+                    <div class="welcome-subtitle">Tanyakan apa pun tentang materi kuliah Pak Ronggo Week 11 (Chatbot & RAG), atau biarkan RAG menganalisis dokumen basis pengetahuan Anda.</div>
                     
                     <div class="suggestions-grid">
                         <div class="suggestion-card" onclick="submitQuickQuestion('Siapa dosen pengampu materi Week 11?')">
@@ -541,6 +607,13 @@
                 return "http://localhost:5000/api/chat";
             }
             return "/api/chat";
+        };
+
+        const getUploadUrl = () => {
+            if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:") {
+                return "http://localhost:5000/api/upload";
+            }
+            return "/api/upload";
         };
 
         function toggleSendBtnState() {
@@ -680,6 +753,24 @@
                 
                 // 4. Render output dengan typewriter effect pada jawaban RAG
                 typeText(botBubble, data.rag_answer, () => {
+                    // Tambahkan Rujukan/Sitasi jika ada
+                    if (data.citations && data.citations.length > 0) {
+                        const citationsDiv = document.createElement('div');
+                        citationsDiv.className = 'citations-container';
+                        
+                        let badgeHtml = '<span style="font-size: 0.8rem; font-weight: 700; color: var(--text-sub); width: 100%; display: block; margin-bottom: 4px;"><i class="fa-solid fa-book-bookmark"></i> Rujukan Dokumen:</span>';
+                        data.citations.forEach(cit => {
+                            badgeHtml += `
+                                <div class="citation-badge" title="Rujukan Halaman">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                    <span>${cit.source} (Halaman ${cit.page})</span>
+                                </div>
+                            `;
+                        });
+                        citationsDiv.innerHTML = badgeHtml;
+                        botBubble.appendChild(citationsDiv);
+                    }
+
                     // Tambahkan expander Baseline setelah teks typewriter selesai diketik
                     const expander = document.createElement('div');
                     expander.className = 'baseline-expander';
@@ -702,6 +793,82 @@
             } catch (error) {
                 botBubble.innerHTML = `<span style="color: #ef4444;"><i class="fa-solid fa-triangle-exclamation"></i> Gagal terhubung ke API Serverless: ${error.message}</span>`;
                 scrollChatToBottom();
+            }
+        }
+
+        // Drag and Drop PDF Handlers
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('pdfFileInput');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    fileInput.files = files;
+                    handleFileSelect();
+                }
+            });
+        }
+
+        async function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            if (file.type !== "application/pdf") {
+                showUploadStatus("Gagal: File harus berformat PDF.", "error");
+                return;
+            }
+
+            showUploadStatus("Mengunggah & mengindeks dokumen...", "loading");
+            dropZone.className = "drop-zone"; // reset classes
+
+            const formData = new FormData();
+            formData.append("pdf", file);
+
+            try {
+                const response = await fetch(getUploadUrl(), {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    showUploadStatus(`Berhasil! ${data.filename} diindeks ke ChromaDB.`, "success");
+                    dropZone.classList.add('success');
+                    dropZone.querySelector('p').innerText = file.name;
+                    dropZone.querySelector('p + p').innerText = `${(file.size / 1024 / 1024).toFixed(2)} MB - ${data.page_count} Halaman`;
+                } else {
+                    showUploadStatus(`Gagal: ${data.error || 'Terjadi kesalahan'}`, "error");
+                }
+            } catch (error) {
+                showUploadStatus(`Gagal: ${error.message}`, "error");
+            }
+        }
+
+        function showUploadStatus(message, type) {
+            uploadStatus.style.display = "block";
+            if (type === "loading") {
+                uploadStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-blue);"></i> <span style="color: var(--text-main); font-weight: 500;">${message}</span>`;
+            } else if (type === "success") {
+                uploadStatus.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--accent-green);"></i> <span style="color: var(--text-main); font-weight: 500;">${message}</span>`;
+            } else {
+                uploadStatus.innerHTML = `<i class="fa-solid fa-circle-xmark" style="color: #ef4444;"></i> <span style="color: #ef4444; font-weight: 500;">${message}</span>`;
             }
         }
     </script>

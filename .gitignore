@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# Environment variables (JANGAN pernah commit file .env asli Anda!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database local (ChromaDB / FAISS)
+chroma_db/
+faiss_index/
+
+# Streamlit config / cache
+.streamlit/
