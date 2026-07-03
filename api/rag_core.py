@@ -34,7 +34,7 @@ llm = ChatGoogleGenerativeAI(
 # =====================================================================
 # 3. LOADER DOKUMEN DINAMIS (Membaca folder 'documents')
 # =====================================================================
-docs_dir = os.path.join(os.path.dirname(__file__), "documents")
+docs_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "documents")
 os.makedirs(docs_dir, exist_ok=True)
 
 loaded_docs = []

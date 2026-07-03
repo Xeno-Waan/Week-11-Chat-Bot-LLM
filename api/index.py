@@ -7,19 +7,22 @@ from flask_cors import CORS
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
-    from rag_core import llm, rag_chain
+    from api.rag_core import llm, rag_chain
 except ImportError:
-    # Fallback/Mock jika terjadi masalah impor
-    class MockLLM:
-        def invoke(self, text):
-            class Content:
-                content = f"Ini jawaban baseline mock untuk: '{text}'"
-            return Content()
-    class MockRAGChain:
-        def invoke(self, text):
-            return f"Ini jawaban RAG mock untuk: '{text}'"
-    llm = MockLLM()
-    rag_chain = MockRAGChain()
+    try:
+        from rag_core import llm, rag_chain
+    except ImportError:
+        # Fallback/Mock jika terjadi masalah impor
+        class MockLLM:
+            def invoke(self, text):
+                class Content:
+                    content = f"Ini jawaban baseline mock untuk: '{text}'"
+                return Content()
+        class MockRAGChain:
+            def invoke(self, text):
+                return f"Ini jawaban RAG mock untuk: '{text}'"
+        llm = MockLLM()
+        rag_chain = MockRAGChain()
 
 app = Flask(__name__)
 # Aktifkan CORS agar frontend HTML statis bisa memanggil API dari domain/lokal berbeda

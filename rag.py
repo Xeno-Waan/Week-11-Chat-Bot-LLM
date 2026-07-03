@@ -6,5 +6,5 @@ api_key = st.secrets.get("GOOGLE_API_KEY") if "GOOGLE_API_KEY" in st.secrets els
 if api_key:
     os.environ["GOOGLE_API_KEY"] = api_key
 
-# Import modul RAG utama
-from rag_core import llm, rag_chain
+# Import modul RAG utama dari folder api
+from api.rag_core import llm, rag_chain
