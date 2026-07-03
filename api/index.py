@@ -28,6 +28,17 @@ app = Flask(__name__)
 # Aktifkan CORS agar frontend HTML statis bisa memanggil API dari domain/lokal berbeda
 CORS(app)
 
+@app.route("/", methods=["GET"])
+@app.route("/index.html", methods=["GET"])
+def index():
+    root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    index_path = os.path.join(root_dir, "index.html")
+    try:
+        with open(index_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception as e:
+        return f"Error loading index.html: {str(e)}", 404
+
 @app.route("/api/health", methods=["GET"])
 def health():
     return jsonify({
