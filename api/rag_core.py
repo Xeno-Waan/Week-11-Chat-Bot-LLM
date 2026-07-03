@@ -1,4 +1,9 @@
 import os
+from dotenv import load_dotenv
+
+# Muat file .env secara lokal
+load_dotenv()
+
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough

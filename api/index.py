@@ -1,5 +1,10 @@
 import os
 import sys
+from dotenv import load_dotenv
+
+# Muat file .env secara lokal
+load_dotenv()
+
 import wandb
 from flask import Flask, request, jsonify
 from flask_cors import CORS

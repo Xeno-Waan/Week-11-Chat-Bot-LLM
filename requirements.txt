@@ -10,3 +10,4 @@ flask
 flask-cors
 langchain-text-splitters
 wandb
+python-dotenv
