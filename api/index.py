@@ -8,19 +8,19 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 try:
     from api.rag_core import llm, rag_chain
-except ImportError:
+except Exception as e:
     try:
         from rag_core import llm, rag_chain
-    except ImportError:
-        # Fallback/Mock jika terjadi masalah impor
+    except Exception as e2:
+        # Fallback/Mock jika terjadi masalah impor atau error inisialisasi RAG
         class MockLLM:
             def invoke(self, text):
                 class Content:
-                    content = f"Ini jawaban baseline mock untuk: '{text}'"
+                    content = f"Ini jawaban baseline mock (Detail error: {str(e2)}) untuk: '{text}'"
                 return Content()
         class MockRAGChain:
             def invoke(self, text):
-                return f"Ini jawaban RAG mock untuk: '{text}'"
+                return f"Ini jawaban RAG mock (Detail error: {str(e)}) untuk: '{text}'"
         llm = MockLLM()
         rag_chain = MockRAGChain()
 
