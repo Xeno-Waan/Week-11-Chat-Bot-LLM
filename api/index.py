@@ -22,21 +22,23 @@ try:
         format_docs, Chroma, index_uploaded_pdf
     )
 except Exception as e:
+    err_msg_1 = str(e)
     try:
         from rag_core import (
             llm, rag_chain, generation_chain, embeddings, retriever, 
             format_docs, Chroma, index_uploaded_pdf
         )
     except Exception as e2:
+        err_msg_2 = str(e2)
         # Fallback/Mock jika terjadi masalah impor atau error inisialisasi RAG
         class MockLLM:
             def invoke(self, text):
                 class Content:
-                    content = f"Ini jawaban baseline mock (Detail error: {str(e2)}) untuk: '{text}'"
+                    content = f"Ini jawaban baseline mock (Detail error: {err_msg_2}) untuk: '{text}'"
                 return Content()
         class MockRAGChain:
             def invoke(self, text):
-                return f"Ini jawaban RAG mock (Detail error: {str(e)}) untuk: '{text}'"
+                return f"Ini jawaban RAG mock (Detail error: {err_msg_1}) untuk: '{text}'"
         
         llm = MockLLM()
         rag_chain = MockRAGChain()
